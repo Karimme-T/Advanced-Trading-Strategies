@@ -158,14 +158,14 @@ with mlflow.start_run(run_name="MLP_baseline") as run:
     pesos = class_weights_balanced(y_tr_mlp)
     modelo_mlp = build_mlp(input_dim=X_tr_mlp.shape[1], num_classes=n_clases)
     es = callbacks.EarlyStopping(monitor="val_loss", patience=patience, restore_best_weights=True)
-    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_mlp"),
+    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_mlp.keras"),
                                      monitor="val_loss", save_best_only=True, save_weights_only=False)
     hist = modelo_mlp.fit(X_tr_mlp, y_tr_mlp,
                           validation_data=(X_va_mlp, y_va_mlp),
                           epochs=epochs, batch_size=batch_size,
                           class_weight=pesos,
                           callbacks=[es, ckpt], verbose=2)
-    modelo_mlp.save(os.path.join(outdir, "best_mlp"), include_optimizer=False)
+    modelo_mlp.save(os.path.join(outdir, "best_mlp.keras"), include_optimizer=False)
 
     # Evaluación
     proba_val = modelo_mlp.predict(X_va_mlp)
@@ -189,15 +189,15 @@ with mlflow.start_run(run_name="CNN_1D") as run:
     modelo_cnn = build_cnn(input_len=X_tr_seq.shape[1], num_features=X_tr_seq.shape[2],
                            num_classes=n_clases)
     es = callbacks.EarlyStopping(monitor="val_loss", patience=patience, restore_best_weights=True)
-    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_cnn"),
+    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_cnn.keras"),
                                      monitor="val_loss", save_best_only=True, save_weights_only=False)
     hist = modelo_cnn.fit(X_tr_seq, y_tr_seq,
                           validation_data=(X_va_seq, y_va_seq),
                           epochs=epochs, batch_size=batch_size,
                           class_weight=pesos,
                           callbacks=[es, ckpt], verbose=2)
-    modelo_cnn.save(os.path.join(outdir, "best_cnn"), include_optimize=False)
-    
+    modelo_cnn.save(os.path.join(outdir, "best_cnn.keras"), include_optimize=False)
+
     # Evaluación
     proba_val = modelo_cnn.predict(X_va_seq)
     proba_te  = modelo_cnn.predict(X_te_seq)

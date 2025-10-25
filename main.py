@@ -83,8 +83,8 @@ def backtest_model_on_splits(model, inv_mapping, bt_params):
 def main():
     # 1️⃣ Cargar mejor modelo entrenado
     # Asumir que redes_version2.py ya corrió y guardó los modelos
-    model_mlp = tf.keras.models.load_model("outputs/best_mlp", compile=False)
-    model_cnn = tf.keras.models.load_model("outputs/best_cnn", compile=False)
+    model_mlp = tf.keras.models.load_model("outputs/best_mlp.keras", compile=False)
+    model_cnn = tf.keras.models.load_model("outputs/best_cnn.keras", compile=False)
     
     # Label mapping (de redes_version2.py)
     unique_labels = sorted(train_scaled["signal"].unique())
