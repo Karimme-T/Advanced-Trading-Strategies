@@ -196,7 +196,7 @@ with mlflow.start_run(run_name="CNN_1D") as run:
                           epochs=epochs, batch_size=batch_size,
                           class_weight=pesos,
                           callbacks=[es, ckpt], verbose=2)
-    modelo_cnn.save(os.path.join(outdir, "best_cnn.keras"), include_optimize=False)
+    modelo_cnn.save(os.path.join(outdir, "best_cnn.keras"), include_optimizer=False)
 
     # Evaluación
     proba_val = modelo_cnn.predict(X_va_seq)

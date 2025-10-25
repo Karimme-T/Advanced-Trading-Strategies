@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/karimmetejeda/Documents/TRADING/Co%CC%81digos/Advanced-Trading-Strategies/mlruns/686659980564077891/6539e45636b346589d3ea2c6648d329e/artifacts
+end_time: 1761433141055
+entry_point_name: ''
+experiment_id: '686659980564077891'
+lifecycle_stage: active
+run_id: 6539e45636b346589d3ea2c6648d329e
+run_name: CNN_1D
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761433108404
+status: 3
+tags: []
+user_id: karimmetejeda

@@ -1,0 +1,14 @@
+artifact_uri: file:///Users/karimmetejeda/Documents/TRADING/Co%CC%81digos/Advanced-Trading-Strategies/mlruns/686659980564077891/3f6965020e9c417297ec89bb1bb1ac77/artifacts
+end_time: 1761433142035
+entry_point_name: ''
+experiment_id: '686659980564077891'
+lifecycle_stage: active
+run_id: 3f6965020e9c417297ec89bb1bb1ac77
+run_name: BEST_MLP_TEST
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1761433141998
+status: 3
+tags: []
+user_id: karimmetejeda
