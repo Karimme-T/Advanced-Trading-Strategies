@@ -1,7 +1,7 @@
 import os, json, numpy as np
 import mlflow, mlflow.tensorflow
 import tensorflow as tf
-from tensorflow.keras import layers, models, callbacks, optimizers
+from keras import layers, models, callbacks, optimizers
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score, confusion_matrix, classification_report
 from sklearn.preprocessing import label_binarize
@@ -130,7 +130,21 @@ y_te_seq = np.vectorize(map_mlp.get)(y_te_seq_raw).astype(int)
 
 # Entrenamiento y comparación
 mlflow.set_experiment(experiment_name)
-mlflow.tensorflow.autolog(log_models=True, every_n_iter=1)
+try:
+    import mlflow.keras
+    mlflow.keras.autolog(
+        log_models=True,
+        log_input_examples=False,
+        log_model_signatures=True,
+        log_datasets=False
+    )
+except Exception:
+    import mlflow.tensorflow
+    mlflow.tensorflow.autolog(
+        log_models=True,
+        log_input_examples=False,
+        log_model_signatures=True
+    )
 
 resultados_val = {}
 
@@ -144,13 +158,15 @@ with mlflow.start_run(run_name="MLP_baseline") as run:
     pesos = class_weights_balanced(y_tr_mlp)
     modelo_mlp = build_mlp(input_dim=X_tr_mlp.shape[1], num_classes=n_clases)
     es = callbacks.EarlyStopping(monitor="val_loss", patience=patience, restore_best_weights=True)
-    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_mlp.h5"),
-                                     monitor="val_loss", save_best_only=True)
+    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_mlp"),
+                                     monitor="val_loss", save_best_only=True, save_weights_only=False)
     hist = modelo_mlp.fit(X_tr_mlp, y_tr_mlp,
                           validation_data=(X_va_mlp, y_va_mlp),
                           epochs=epochs, batch_size=batch_size,
                           class_weight=pesos,
                           callbacks=[es, ckpt], verbose=2)
+    modelo_mlp.save(os.path.join(outdir, "best_mlp"), include_optimizer=False)
+
     # Evaluación
     proba_val = modelo_mlp.predict(X_va_mlp)
     proba_te  = modelo_mlp.predict(X_te_mlp)
@@ -173,13 +189,15 @@ with mlflow.start_run(run_name="CNN_1D") as run:
     modelo_cnn = build_cnn(input_len=X_tr_seq.shape[1], num_features=X_tr_seq.shape[2],
                            num_classes=n_clases)
     es = callbacks.EarlyStopping(monitor="val_loss", patience=patience, restore_best_weights=True)
-    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_cnn.h5"),
-                                     monitor="val_loss", save_best_only=True)
+    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_cnn"),
+                                     monitor="val_loss", save_best_only=True, save_weights_only=False)
     hist = modelo_cnn.fit(X_tr_seq, y_tr_seq,
                           validation_data=(X_va_seq, y_va_seq),
                           epochs=epochs, batch_size=batch_size,
                           class_weight=pesos,
                           callbacks=[es, ckpt], verbose=2)
+    modelo_cnn.save(os.path.join(outdir, "best_cnn"), include_optimize=False)
+    
     # Evaluación
     proba_val = modelo_cnn.predict(X_va_seq)
     proba_te  = modelo_cnn.predict(X_te_seq)

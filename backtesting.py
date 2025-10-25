@@ -1,5 +1,6 @@
 # BACKTESTING 
 from dataclasses import dataclass
+import pandas as pd
 
 @dataclass
 class BacktestParams:
