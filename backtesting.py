@@ -1,6 +1,13 @@
 # BACKTESTING 
 from dataclasses import dataclass
 import pandas as pd
+import numpy as np
+from pathlib import Path
+import os
+import matplotlib.pyplot as plt
+
+default_outdir = Path("outputs")
+default_outdir.mkdir(exist_ok=True)
 
 @dataclass
 class BacktestParams:
@@ -38,7 +45,7 @@ def _apply_sl_tp_short(entry, hi, lo, close, tp, sl):
 
 def backtest_signals_ohlc(df_prices: pd.DataFrame,
                           signals: pd.Series,
-                          params: BacktestParams) -> dict:
+                          params: BacktestParams, outdir:Path |str = default_outdir, save_plots: bool=True) -> dict:
     """
     Estrategia diaria 'flat' al cierre:
     - Entra al CIERRE de t-1 si signal[t-1] != 0 y opera durante el día t con SL/TP por High/Low.
@@ -47,6 +54,9 @@ def backtest_signals_ohlc(df_prices: pd.DataFrame,
     - Borrow diario para cortos: 0.25%/252 * notional.
     Retorna métricas, equity y log de trades.
     """
+    if isinstance(outdir, str):
+        outdir = Path(outdir)
+    outdir.mkdir(exist_ok=True)
     # Orden y alineación
     d = df_prices.sort_values("date").reset_index(drop=True)
     sig = signals.reset_index(drop=True)
@@ -147,20 +157,21 @@ def backtest_signals_ohlc(df_prices: pd.DataFrame,
     win_rate = float((trades_df["pnl_net"] > 0).mean()) if len(trades_df) else np.nan
 
     # Guardados opcionales
-    eq_path = os.path.join(outdir, "equity_curve.png")
-    fig = plt.figure(figsize=(7,3))
-    plt.plot(eq_df["date"], eq_df["equity"])
-    plt.title("Equity Curve (reglas del proyecto)")
-    plt.tight_layout()
-    fig.savefig(eq_path, dpi=150)
-    plt.close(fig)
+    if save_plots:
+        eq_path = outdir / "equity_curve.png"
+        fig = plt.figure(figsize=(7,3))
+        plt.plot(eq_df["date"], eq_df["equity"])
+        plt.title("Equity Curve (reglas del proyecto)")
+        plt.tight_layout()
+        fig.savefig(eq_path, dpi=150)
+        plt.close(fig)
 
-    eq_csv = os.path.join(outdir, "equity_curve.csv")
-    trades_csv = os.path.join(outdir, "trades.csv")
-    ret_csv = os.path.join(outdir, "daily_returns.csv")
-    eq_df.to_csv(eq_csv, index=False)
-    trades_df.to_csv(trades_csv, index=False)
-    ret_df.to_csv(ret_csv, index=False)
+        eq_csv = os.path.join(outdir, "equity_curve.csv")
+        trades_csv = os.path.join(outdir, "trades.csv")
+        ret_csv = os.path.join(outdir, "daily_returns.csv")
+        eq_df.to_csv(eq_csv, index=False)
+        trades_df.to_csv(trades_csv, index=False)
+        ret_df.to_csv(ret_csv, index=False)
 
     # (Opcional) log a MLflow si lo estás usando en este script
     try:
