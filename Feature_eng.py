@@ -176,9 +176,7 @@ print("train:", train_scaled["signal"].value_counts(normalize=True).round(3))
 print("val  :", val_scaled["signal"].value_counts(normalize=True).round(3))
 print("test :", test_scaled["signal"].value_counts(normalize=True).round(3))
 
-# ---------------------------------------------------------
-# (Opcional) 5) Empaquetar ventanas para Keras (sin fuga)
-# ---------------------------------------------------------
+# Empaquetar ventanas para Keras
 def make_sequences(df_part: pd.DataFrame, feat_cols: list, lookback: int = 30):
     """
     Convierte un dataframe ya escalado en tensores (X, y) con ventana deslizante.
