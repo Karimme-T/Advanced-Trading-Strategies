@@ -37,7 +37,8 @@ def generate_signals_cfa(
     df = df_data.copy()
 
     # Normalización solo features del modelo
-    feats_norm = (df[feat_cols_model] - mean_model) / std_model.replace(0, 1.0)
+    feats = df.reindex(columns=feat_cols_model)
+    feats_norm = (feats - mean_model) / std_model.replace(0, 1.0)
 
     # Detectar si el modelo espera 2D (MLP) o 3D (CNN 1D)
     in_shape = getattr(model, "input_shape", None)

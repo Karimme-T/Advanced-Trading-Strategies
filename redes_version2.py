@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 from Feature_eng import make_sequences, train_scaled, val_scaled, test_scaled, feat_cols
 
 experiment_name = "dl_trading"
-lookback = 100       
-epochs = 300
+lookback = 10       
+epochs = 200
 batch_size = 256
-patience = 10
+patience = 15
 outdir = "outputs"
 os.makedirs(outdir, exist_ok=True)
 
@@ -80,9 +80,9 @@ def evaluate_split(y_true_int: np.ndarray, proba: np.ndarray, split: str):
 def build_mlp(input_dim: int, num_classes: int = 3) -> tf.keras.Model:
     model = models.Sequential([
         layers.Input(shape=(input_dim,)),
-        layers.Dense(512, activation="relu"),
+        layers.Dense(768, activation="relu"),
         layers.Dropout(0.5),
-        layers.Dense(256, activation="relu"),
+        layers.Dense(384, activation="relu"),
         layers.Dropout(0.5),
         layers.Dense(num_classes, activation="softmax"),
     ])
@@ -93,11 +93,11 @@ def build_mlp(input_dim: int, num_classes: int = 3) -> tf.keras.Model:
 
 
 def build_cnn(input_len: int, num_features: int, num_classes: int = 3,
-              kernel_size: int = 15, pool_size: int = 4, filters: int = 192) -> tf.keras.Model:
+              kernel_size: int = 5, pool_size: int = 2, filters: int = 192) -> tf.keras.Model:
     inp = layers.Input(shape=(input_len, num_features))
     x = layers.Conv1D(filters, kernel_size=kernel_size, padding="same", activation="relu")(inp)
     x = layers.MaxPooling1D(pool_size=pool_size)(x)
-    x = layers.Conv1D(filters*2, kernel_size=5, padding="same", activation="relu")(x)
+    x = layers.Conv1D(filters, kernel_size=5, padding="same", activation="relu")(x)
     x = layers.GlobalAveragePooling1D()(x)
     x = layers.Dropout(0.5)(x)
     x = layers.Dense(256, activation="relu")(x)

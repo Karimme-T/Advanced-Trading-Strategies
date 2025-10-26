@@ -8,8 +8,8 @@ import dateparser
 
 
 # Parámetros 
-umbral_alcista = 0.015        
-umbral_bajista = -0.015     
+umbral_alcista = 0.014       
+umbral_bajista = -0.014     
 horizonte = 1         
 train_f = 0.60
 val_f = 0.20
