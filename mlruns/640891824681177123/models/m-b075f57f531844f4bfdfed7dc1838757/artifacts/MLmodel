@@ -1,0 +1,27 @@
+artifact_path: file:///Users/karimmetejeda/Documents/TRADING/Co%CC%81digos/Advanced-Trading-Strategies/mlruns/640891824681177123/models/m-b075f57f531844f4bfdfed7dc1838757/artifacts
+flavors:
+  keras:
+    data: data
+    keras_backend: tensorflow
+    keras_version: 3.3.3
+    save_exported_model: false
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.keras
+    python_version: 3.11.14
+is_signature_from_type_hint: false
+mlflow_version: 3.5.1
+model_id: m-b075f57f531844f4bfdfed7dc1838757
+model_size_bytes: 1861409
+model_uuid: m-b075f57f531844f4bfdfed7dc1838757
+prompts: null
+run_id: 5ef85f0ff96b4b7eb70fc55b489c7281
+signature:
+  inputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1, 40]}}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "float32", "shape": [-1,
+    3]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2025-10-26 04:16:04.454538'

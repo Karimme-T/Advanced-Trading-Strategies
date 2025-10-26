@@ -11,11 +11,11 @@ default_outdir.mkdir(exist_ok=True)
 
 @dataclass
 class BacktestParams:
-    sl: float = 0.02           
-    tp: float = 0.04                
+    sl: float = 0.015           
+    tp: float = 0.025               
     shares: int = 0                
     commission_rt: float = 0.0125   
-    borrow_rate_annual: float = 0.025 
+    borrow_rate_annual: float = 0.0025 
     initial_capital: float = 10000.0   
 
 def _apply_sl_tp_long(entry, hi, lo, close, tp, sl):

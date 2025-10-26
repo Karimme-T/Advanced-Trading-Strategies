@@ -1,0 +1,10 @@
+artifact_location: file:///Users/karimmetejeda/Documents/TRADING/Co%CC%81digos/Advanced-Trading-Strategies/mlruns/640891824681177123/models/m-c62dbe3e48fa4792a9061b6d3752822f/artifacts
+creation_timestamp: 1761452207779
+experiment_id: '640891824681177123'
+last_updated_timestamp: 1761452461959
+model_id: m-c62dbe3e48fa4792a9061b6d3752822f
+model_type: null
+name: model
+source_run_id: 1076288b591b4c989b8d3090c2f4168e
+status: 2
+status_message: null
