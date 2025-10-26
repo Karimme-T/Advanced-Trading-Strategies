@@ -80,10 +80,10 @@ def evaluate_split(y_true_int: np.ndarray, proba: np.ndarray, split: str):
 def build_mlp(input_dim: int, num_classes: int = 3) -> tf.keras.Model:
     model = models.Sequential([
         layers.Input(shape=(input_dim,)),
-        layers.Dense(768, activation="relu"),
-        layers.Dropout(0.5),
-        layers.Dense(384, activation="relu"),
-        layers.Dropout(0.5),
+        layers.Dense(256, activation="relu"),
+        layers.Dropout(0.2),
+        layers.Dense(128, activation="relu"),
+        layers.Dropout(0.2),
         layers.Dense(num_classes, activation="softmax"),
     ])
     model.compile(optimizer=optimizers.Adam(5e-3),
