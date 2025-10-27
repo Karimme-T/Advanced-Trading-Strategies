@@ -20,7 +20,7 @@ from Feature_eng import (
     std            
 )
 
-from utils import backtest_model_on_splits, visualize_backtest_metrics
+from utils import backtest_model_on_splits, visualize_backtest_metrics, plot_portfolio_evolution
 
 def main():
     # Cargar mejores modelos entrenados
@@ -120,6 +120,11 @@ def main():
 
     viz_path = Path("outputs/backtest_metrics_viz.html") 
     _ = visualize_backtest_metrics(results_mlp, results_cnn, viz_path)
+
+    # Visualización de evolución del portafolio
+    print("\n📊 Mostrando evolución del portafolio...")
+    fig = plot_portfolio_evolution(results_mlp, results_cnn)
+    fig.show()
 
     return {
         "mlp": results_mlp,

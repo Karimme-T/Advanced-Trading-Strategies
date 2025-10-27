@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import plotly.express as px
+import plotly.graph_objects as go
 
 from backtesting import BacktestParams, backtest_signals_ohlc
 from Feature_eng import (
@@ -197,3 +198,106 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
     fig.show()
 
     return "Plotly figure shown"
+
+def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
+    """
+    Crea un gráfico interactivo con Plotly mostrando la evolución del equity
+    de ambos modelos (MLP y CNN) en todos los splits.
+    
+    Args:
+        results_mlp: Diccionario con resultados del backtest MLP {split: {"equity": df, ...}}
+        results_cnn: Diccionario con resultados del backtest CNN {split: {"equity": df, ...}}
+    
+    Returns:
+        go.Figure: Figura de Plotly con las curvas de equity
+    """
+    
+    fig = go.Figure()
+    
+    # Colores para los splits
+    colors_mlp = ['#1f77b4', '#aec7e8', '#c6dbef']  # Azules
+    colors_cnn = ['#ff7f0e', '#ffbb78', '#fdd0a2']  # Naranjas
+    
+    # Agregar curvas MLP
+    for i, (split_name, result) in enumerate(results_mlp.items()):
+        equity_df = result["equity"]
+        fig.add_trace(go.Scatter(
+            x=equity_df["date"],
+            y=equity_df["equity"],
+            mode='lines',
+            name=f'MLP - {split_name}',
+            line=dict(color=colors_mlp[i % len(colors_mlp)], width=2),
+            hovertemplate='<b>MLP - %{fullData.name}</b><br>' +
+                          'Fecha: %{x}<br>' +
+                          'Equity: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    # Agregar curvas CNN
+    for i, (split_name, result) in enumerate(results_cnn.items()):
+        equity_df = result["equity"]
+        fig.add_trace(go.Scatter(
+            x=equity_df["date"],
+            y=equity_df["equity"],
+            mode='lines',
+            name=f'CNN - {split_name}',
+            line=dict(color=colors_cnn[i % len(colors_cnn)], width=2),
+            hovertemplate='<b>CNN - %{fullData.name}</b><br>' +
+                          'Fecha: %{x}<br>' +
+                          'Equity: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    # Línea de capital inicial (referencia)
+    if results_mlp:
+        first_result = list(results_mlp.values())[0]
+        initial_capital = first_result["equity"]["equity"].iloc[0]
+        
+        # Obtener rango de fechas completo
+        all_dates = []
+        for result in list(results_mlp.values()) + list(results_cnn.values()):
+            all_dates.extend(result["equity"]["date"].tolist())
+        min_date = min(all_dates)
+        max_date = max(all_dates)
+        
+        fig.add_trace(go.Scatter(
+            x=[min_date, max_date],
+            y=[initial_capital, initial_capital],
+            mode='lines',
+            name='Capital Inicial',
+            line=dict(color='gray', width=1, dash='dot'),
+            hovertemplate='Capital Inicial: $%{y:,.2f}<extra></extra>'
+        ))
+    
+    # Configuración del layout
+    fig.update_layout(
+        title={
+            'text': 'Evolución del Portafolio - MLP vs CNN',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 20, 'color': '#2c3e50'}
+        },
+        xaxis_title='Fecha',
+        yaxis_title='Equity ($)',
+        hovermode='x unified',
+        template='plotly_white',
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(255, 255, 255, 0.8)',
+            bordercolor='#cccccc',
+            borderwidth=1
+        ),
+        height=600,
+        margin=dict(l=80, r=40, t=80, b=60),
+        yaxis=dict(
+            tickformat='$,.0f',
+            gridcolor='#e0e0e0'
+        ),
+        xaxis=dict(
+            gridcolor='#e0e0e0'
+        )
+    )
+    
+    return fig
