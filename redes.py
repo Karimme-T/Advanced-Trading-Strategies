@@ -77,35 +77,64 @@ def evaluate_split(y_true_int: np.ndarray, proba: np.ndarray, split: str):
 
 
 #Modelos
-def build_mlp(input_dim: int, num_classes: int = 3) -> tf.keras.Model:
-    model = models.Sequential([
-        layers.Input(shape=(input_dim,)),
-        layers.Dense(256, activation="relu"),
-        layers.Dropout(0.2),
-        layers.Dense(128, activation="relu"),
-        layers.Dropout(0.2),
-        layers.Dense(num_classes, activation="softmax"),
-    ])
-    model.compile(optimizer=optimizers.Adam(5e-3),
-                  loss="sparse_categorical_crossentropy",
-                  metrics=["accuracy"])
+def build_mlp(input_dim: int, num_classes: int = 3, params: dict | None = None) -> tf.keras.Model:
+    params = params or {}
+    # Hiperparámetros con defaults
+    hidden = params.get("hidden", [256, 128])
+    drop = float(params.get("dropout", 0.2))
+    lr = float(params.get("lr", 1e-3))
+    act = params.get("activation", "relu")
+    l2w = float(params.get("l2", 1e-4))
+    label_smoothing = float(params.get("label_smoothing", 0.0))
+
+    reg = tf.keras.regularizers.l2(l2w)
+    model = models.Sequential([layers.Input(shape=(input_dim,))])
+    for h in hidden:
+        model.add(layers.Dense(int(h), activation=act, kernel_regularizer=reg))
+        model.add(layers.BatchNormalization())
+        model.add(layers.Dropout(drop))
+    model.add(layers.Dense(num_classes, activation="softmax"))
+
+    model.compile(
+        optimizer=optimizers.Adam(learning_rate=lr),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=label_smoothing),
+        metrics=["accuracy"]
+    )
     return model
 
 
-def build_cnn(input_len: int, num_features: int, num_classes: int = 3,
-              kernel_size: int = 5, pool_size: int = 2, filters: int = 192) -> tf.keras.Model:
+def build_cnn(input_len: int, num_features: int, num_classes: int = 3, params: dict | None = None) -> tf.keras.Model:
+    params = params or {}
+    # Hiperparámetros con defaults
+    f1 = int(params.get("filters1", 128))
+    f2 = int(params.get("filters2", 256))
+    k1 = int(params.get("kernel1", 5))
+    k2 = int(params.get("kernel2", 3))
+    pool = int(params.get("pool", 2))
+    drop = float(params.get("dropout", 0.3))
+    lr = float(params.get("lr", 1e-3))
+    l2w = float(params.get("l2", 1e-4))
+    act = params.get("activation", "relu")
+    label_smoothing = float(params.get("label_smoothing", 0.0))
+
+    reg = tf.keras.regularizers.l2(l2w)
     inp = layers.Input(shape=(input_len, num_features))
-    x = layers.Conv1D(filters, kernel_size=kernel_size, padding="same", activation="relu")(inp)
-    x = layers.MaxPooling1D(pool_size=pool_size)(x)
-    x = layers.Conv1D(filters, kernel_size=5, padding="same", activation="relu")(x)
+    x = layers.Conv1D(f1, kernel_size=k1, padding="same", activation=act, kernel_regularizer=reg)(inp)
+    x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling1D(pool_size=pool)(x)
+    x = layers.Conv1D(f2, kernel_size=k2, padding="same", activation=act, kernel_regularizer=reg)(x)
+    x = layers.BatchNormalization()(x)
     x = layers.GlobalAveragePooling1D()(x)
-    x = layers.Dropout(0.5)(x)
-    x = layers.Dense(256, activation="relu")(x)
+    x = layers.Dropout(drop)(x)
+    x = layers.Dense(256, activation=act, kernel_regularizer=reg)(x)
     out = layers.Dense(num_classes, activation="softmax")(x)
     model = models.Model(inputs=inp, outputs=out)
-    model.compile(optimizer=optimizers.Adam(5e-3),
-                  loss="sparse_categorical_crossentropy",
-                  metrics=["accuracy"])
+
+    model.compile(
+        optimizer=optimizers.Adam(learning_rate=lr),
+        loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=label_smoothing),
+        metrics=["accuracy"]
+    )
     return model
 
 
@@ -116,6 +145,7 @@ X_tr_mlp, y_tr_mlp, map_mlp = xy_daywise(train_scaled, feat_cols)
 X_va_mlp, y_va_mlp, _        = xy_daywise(val_scaled,   feat_cols)
 X_te_mlp, y_te_mlp, _        = xy_daywise(test_scaled,  feat_cols)
 n_clases = len(np.unique(np.r_[y_tr_mlp, y_va_mlp, y_te_mlp]))
+
 
 # Para CNN 
 X_tr_seq, y_tr_seq_raw = make_sequences(train_scaled, feat_cols, lookback)
@@ -146,67 +176,126 @@ except Exception:
         log_model_signatures=True
     )
 
+mlp_space = [
+    {"model": "MLP", "hidden": [256,128], "dropout": 0.2, "lr": 1e-3, "activation": "relu", "l2": 1e-4, "label_smoothing": 0.0},
+    {"model": "MLP", "hidden": [512,256], "dropout": 0.3, "lr": 1e-3, "activation": "relu", "l2": 1e-4, "label_smoothing": 0.05},
+    {"model": "MLP", "hidden": [256,256,128], "dropout": 0.3, "lr": 5e-4, "activation": "relu", "l2": 5e-4, "label_smoothing": 0.05},
+]
+
+cnn_space = [
+    # Variamos lookback → se regeneran secuencias por cada HP set
+    {"model": "CNN1D", "lookback": 30, "filters1": 128, "filters2": 256, "kernel1": 5, "kernel2": 3, "pool": 2, "dropout": 0.3, "lr": 1e-3, "activation": "relu", "l2": 1e-4, "label_smoothing": 0.0},
+    {"model": "CNN1D", "lookback": 60, "filters1": 192, "filters2": 192, "kernel1": 5, "kernel2": 5, "pool": 2, "dropout": 0.3, "lr": 1e-3, "activation": "relu", "l2": 1e-4, "label_smoothing": 0.05},
+    {"model": "CNN1D", "lookback": 100,"filters1": 128, "filters2": 256, "kernel1": 7, "kernel2": 3, "pool": 2, "dropout": 0.4, "lr": 5e-4, "activation": "relu", "l2": 5e-4, "label_smoothing": 0.05},
+]
+
 resultados_val = {}
+best_val_f1_mlp = -1.0
+best_val_f1_cnn = -1.0
 
-#  MLP
-with mlflow.start_run(run_name="MLP_baseline") as run:
-    mlflow.log_params({
-        "model": "MLP",
-        "n_features": X_tr_mlp.shape[1],
-        "epochs": epochs, "batch_size": batch_size, "patience": patience
-    })
-    pesos = class_weights_balanced(y_tr_mlp)
-    modelo_mlp = build_mlp(input_dim=X_tr_mlp.shape[1], num_classes=n_clases)
-    es = callbacks.EarlyStopping(monitor="val_loss", patience=patience, restore_best_weights=True)
-    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_mlp.keras"),
-                                     monitor="val_loss", save_best_only=True, save_weights_only=False)
-    hist = modelo_mlp.fit(X_tr_mlp, y_tr_mlp,
-                          validation_data=(X_va_mlp, y_va_mlp),
-                          epochs=epochs, batch_size=batch_size,
-                          class_weight=pesos,
-                          callbacks=[es, ckpt], verbose=2)
-    modelo_mlp.save(os.path.join(outdir, "best_mlp.keras"), include_optimizer=False)
+def make_callbacks(run_best_path: str):
+    es = callbacks.EarlyStopping(monitor="val_accuracy", mode="max", patience=patience, restore_best_weights=True)
+    rlr = callbacks.ReduceLROnPlateau(monitor="val_loss", factor=0.5, patience=5, min_lr=1e-6)
+    ckpt = callbacks.ModelCheckpoint(run_best_path, monitor="val_accuracy", mode="max",
+                                     save_best_only=True, save_weights_only=False)
+    return [es, rlr, ckpt]
 
-    # Evaluación
-    proba_val = modelo_mlp.predict(X_va_mlp)
-    proba_te  = modelo_mlp.predict(X_te_mlp)
-    m_val = evaluate_split(y_va_mlp, proba_val, "val_mlp")
-    m_te  = evaluate_split(y_te_mlp, proba_te,  "test_mlp")
-    resultados_val["MLP"] = m_val
-    with open(os.path.join(outdir, "mlp_test_metrics.json"), "w") as f:
-        json.dump(m_te, f, indent=2)
-    mlflow.log_artifact(os.path.join(outdir, "mlp_test_metrics.json"))
+# Loop MLP
+for i, hp in enumerate(mlp_space, start=1):
+    run_name = f"MLP_hp{i}"
+    with mlflow.start_run(run_name=run_name) as run:
+        # Log params hp + de entorno
+        mlflow.log_params({
+            **hp,
+            "n_features": X_tr_mlp.shape[1],
+            "epochs": epochs, "batch_size": batch_size, "patience": patience
+        })
+        pesos = class_weights_balanced(y_tr_mlp)
+        model_mlp = build_mlp(input_dim=X_tr_mlp.shape[1], num_classes=n_clases, params=hp)
+        cbs = make_callbacks(os.path.join(outdir, f"best_mlp_hp{i}.keras"))
 
-# CNN 1D 
-with mlflow.start_run(run_name="CNN_1D") as run:
-    mlflow.log_params({
-        "model": "CNN1D",
-        "lookback": lookback,
-        "n_features": X_tr_seq.shape[2],
-        "epochs": epochs, "batch_size": batch_size, "patience": patience
-    })
-    pesos = class_weights_balanced(y_tr_seq)
-    modelo_cnn = build_cnn(input_len=X_tr_seq.shape[1], num_features=X_tr_seq.shape[2],
-                           num_classes=n_clases)
-    es = callbacks.EarlyStopping(monitor="val_loss", patience=patience, restore_best_weights=True)
-    ckpt = callbacks.ModelCheckpoint(os.path.join(outdir, "best_cnn.keras"),
-                                     monitor="val_loss", save_best_only=True, save_weights_only=False)
-    hist = modelo_cnn.fit(X_tr_seq, y_tr_seq,
-                          validation_data=(X_va_seq, y_va_seq),
-                          epochs=epochs, batch_size=batch_size,
-                          class_weight=pesos,
-                          callbacks=[es, ckpt], verbose=2)
-    modelo_cnn.save(os.path.join(outdir, "best_cnn.keras"), include_optimizer=False)
+        hist = model_mlp.fit(
+            X_tr_mlp, y_tr_mlp,
+            validation_data=(X_va_mlp, y_va_mlp),
+            epochs=epochs, batch_size=batch_size,
+            class_weight=pesos,
+            callbacks=cbs, verbose=2
+        )
 
-    # Evaluación
-    proba_val = modelo_cnn.predict(X_va_seq)
-    proba_te  = modelo_cnn.predict(X_te_seq)
-    m_val = evaluate_split(y_va_seq, proba_val, "val_cnn")
-    m_te  = evaluate_split(y_te_seq,  proba_te,  "test_cnn")
-    resultados_val["CNN"] = m_val
-    with open(os.path.join(outdir, "cnn_test_metrics.json"), "w") as f:
-        json.dump(m_te, f, indent=2)
-    mlflow.log_artifact(os.path.join(outdir, "cnn_test_metrics.json"))
+        # Eval
+        proba_val = model_mlp.predict(X_va_mlp, verbose=0)
+        proba_te  = model_mlp.predict(X_te_mlp, verbose=0)
+        m_val = evaluate_split(y_va_mlp, proba_val, f"val_mlp_hp{i}")
+        m_te  = evaluate_split(y_te_mlp, proba_te,  f"test_mlp_hp{i}")
+
+        resultados_val[f"MLP_hp{i}"] = m_val
+
+        # Si es el mejor MLP hasta ahora, exporta como best_mlp.keras (para main)
+        if m_val["f1_macro"] > best_val_f1_mlp:
+            best_val_f1_mlp = m_val["f1_macro"]
+            # el checkpoint ya guardó el mejor por val_accuracy; lo reutilizamos como "oficial"
+            src = os.path.join(outdir, f"best_mlp_hp{i}.keras")
+            dst = os.path.join(outdir, "best_mlp.keras")
+            try:
+                import shutil
+                shutil.copyfile(src, dst)
+            except Exception as _e:
+                pass
+
+# Loop CNN (regenerando secuencias por HP set)
+for j, hp in enumerate(cnn_space, start=1):
+    run_name = f"CNN1D_hp{j}"
+    lookback_hp = int(hp["lookback"])
+
+    # Re-generar secuencias para este lookback
+    X_tr_seq, y_tr_seq_raw = make_sequences(train_scaled, feat_cols, lookback_hp)
+    X_va_seq, y_va_seq_raw = make_sequences(val_scaled,   feat_cols, lookback_hp)
+    X_te_seq, y_te_seq_raw = make_sequences(test_scaled,  feat_cols, lookback_hp)
+
+    # Remapeo coherente
+    y_tr_seq = np.vectorize(map_mlp.get)(y_tr_seq_raw).astype(int)
+    y_va_seq = np.vectorize(map_mlp.get)(y_va_seq_raw).astype(int)
+    y_te_seq = np.vectorize(map_mlp.get)(y_te_seq_raw).astype(int)
+
+    with mlflow.start_run(run_name=run_name) as run:
+        mlflow.log_params({
+            **hp,
+            "n_features": X_tr_seq.shape[2],
+            "epochs": epochs, "batch_size": batch_size, "patience": patience
+        })
+        pesos = class_weights_balanced(y_tr_seq)
+        model_cnn = build_cnn(input_len=X_tr_seq.shape[1], num_features=X_tr_seq.shape[2],
+                              num_classes=n_clases, params=hp)
+        cbs = make_callbacks(os.path.join(outdir, f"best_cnn_hp{j}.keras"))
+
+        hist = model_cnn.fit(
+            X_tr_seq, y_tr_seq,
+            validation_data=(X_va_seq, y_va_seq),
+            epochs=epochs, batch_size=batch_size,
+            class_weight=pesos,
+            callbacks=cbs, verbose=2
+        )
+
+        # Eval
+        proba_val = model_cnn.predict(X_va_seq, verbose=0)
+        proba_te  = model_cnn.predict(X_te_seq, verbose=0)
+        m_val = evaluate_split(y_va_seq, proba_val, f"val_cnn_hp{j}")
+        m_te  = evaluate_split(y_te_seq,  proba_te,  f"test_cnn_hp{j}")
+
+        resultados_val[f"CNN_hp{j}"] = m_val
+
+        # Si es el mejor CNN hasta ahora, exporta como best_cnn.keras (para main)
+        if m_val["f1_macro"] > best_val_f1_cnn:
+            best_val_f1_cnn = m_val["f1_macro"]
+            src = os.path.join(outdir, f"best_cnn_hp{j}.keras")
+            dst = os.path.join(outdir, "best_cnn.keras")
+            try:
+                import shutil
+                shutil.copyfile(src, dst)
+            except Exception as _e:
+                pass
+
+
 
 # Selección del mejor por F1 en VALID 
 mejor = max(resultados_val.items(), key=lambda kv: kv[1]["f1_macro"])[0]
