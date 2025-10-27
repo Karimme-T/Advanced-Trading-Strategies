@@ -16,6 +16,16 @@ patience = 15
 outdir = "outputs"
 os.makedirs(outdir, exist_ok=True)
 
+def make_sparse_ce(label_smoothing: float = 0.0):
+    try:
+        # Algunas versiones sí lo soportan:
+        return tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=label_smoothing)
+    except TypeError:
+        if label_smoothing and label_smoothing > 0:
+            print("[WARN] label_smoothing no soportado en esta versión de TF con SparseCategoricalCrossentropy; usando loss sin smoothing.")
+        return "sparse_categorical_crossentropy"
+
+
 
 def remap_labels(y_raw: np.ndarray):
     """Mapea {-1,0,1} -> {0,1,2} (ordenado) y devuelve (y_int, mapping_dict)."""
@@ -95,10 +105,11 @@ def build_mlp(input_dim: int, num_classes: int = 3, params: dict | None = None) 
         model.add(layers.Dropout(drop))
     model.add(layers.Dense(num_classes, activation="softmax"))
 
+    loss_fn = make_sparse_ce(label_smoothing=label_smoothing)
     model.compile(
         optimizer=optimizers.Adam(learning_rate=lr),
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=label_smoothing),
-        metrics=["accuracy"]
+        loss = loss_fn,
+        metrics = ["accuracy"]
     )
     return model
 
@@ -130,10 +141,12 @@ def build_cnn(input_len: int, num_features: int, num_classes: int = 3, params: d
     out = layers.Dense(num_classes, activation="softmax")(x)
     model = models.Model(inputs=inp, outputs=out)
 
+
+    loss_fn = make_sparse_ce(label_smoothing=label_smoothing)
     model.compile(
         optimizer=optimizers.Adam(learning_rate=lr),
-        loss=tf.keras.losses.SparseCategoricalCrossentropy(label_smoothing=label_smoothing),
-        metrics=["accuracy"]
+        loss = loss_fn,
+        metrics = ["accuracy"]
     )
     return model
 
