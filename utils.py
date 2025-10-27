@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+import plotly.express as px
 
 from backtesting import BacktestParams, backtest_signals_ohlc
 from Feature_eng import (
@@ -139,3 +140,60 @@ def backtest_model_on_splits(
     results['full'] = backtest_signals_ohlc(df_full, signals_full, bt_params, outdir=outdir_root / "bt_full")
 
     return results
+
+def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path: Path):
+    """
+    Crea una visualización Plotly de las métricas clave de backtesting.
+    Compara MLP y CNN a través de los splits (train, val, test, full).
+    Guarda el resultado como un archivo JSON de Plotly.
+    """
+    
+    data = []
+    # Procesar resultados MLP
+    for split, res in results_mlp.items():
+        metrics = res["metrics"]
+        data.append({
+            "Model": "MLP", "Split": split.capitalize(), 
+            "Sharpe": metrics["sharpe"], "CAGR": metrics["cagr"], 
+            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
+        })
+    
+    # Procesar resultados CNN
+    for split, res in results_cnn.items():
+        metrics = res["metrics"]
+        data.append({
+            "Model": "CNN", "Split": split.capitalize(), 
+            "Sharpe": metrics["sharpe"], "CAGR": metrics["cagr"], 
+            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
+        })
+
+    df = pd.DataFrame(data)
+    
+    # Pivotear el dataframe para Plotly Express
+    df_melt = df.melt(
+        id_vars=["Model", "Split"], 
+        value_vars=["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate"],
+        var_name="Metric",
+        value_name="Value"
+    )
+    
+    # Crear el gráfico de barras agrupado
+    fig = px.bar(
+        df_melt, 
+        x="Split", 
+        y="Value", 
+        color="Model", 
+        facet_col="Metric", 
+        facet_col_wrap=2,
+        title="Comparación de Métricas de Backtesting (MLP vs CNN)",
+        barmode="group",
+        category_orders={"Metric": ["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate"]}
+    )
+
+    # Ajustar títulos para Max_Drawdown y Win_Rate
+    fig.for_each_annotation(lambda a: a.update(text=a.text.replace("Metric=", "")))
+    
+    print("Mostrando el gráfico interactivo. Puede abrirse en una nueva ventana/pestaña del navegador.")
+    fig.show()
+
+    return "Plotly figure shown"

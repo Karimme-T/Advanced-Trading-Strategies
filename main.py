@@ -17,7 +17,7 @@ from Feature_eng import (
     std            
 )
 
-from utils import backtest_model_on_splits
+from utils import backtest_model_on_splits, visualize_backtest_metrics
 
 def main():
     # Cargar mejores modelos entrenados
@@ -69,6 +69,9 @@ def main():
     # Imprimir resultados
     print("Backtest MLP:", {k: v["metrics"] for k, v in results_mlp.items()})
     print("Backtest CNN:", {k: v["metrics"] for k, v in results_cnn.items()})
+
+    viz_path = Path("outputs/backtest_metrics_viz.html") 
+    _ = visualize_backtest_metrics(results_mlp, results_cnn, viz_path)
 
     return {
         "mlp": results_mlp,
