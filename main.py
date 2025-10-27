@@ -20,56 +20,12 @@ from Feature_eng import (
     std            
 )
 
-from utils import backtest_model_on_splits, visualize_backtest_metrics, plot_portfolio_evolution
+from utils import backtest_model_on_splits, visualize_backtest_metrics, plot_portfolio_evolution, load_models
 
 def main():
     # Cargar mejores modelos entrenados
-    #model_mlp = tf.keras.models.load_model("outputs/best_mlp.keras", compile=False)
-    #model_cnn = tf.keras.models.load_model("outputs/best_cnn.keras", compile=False)
-
-    #TRIAL AUTOMAT REDES.PY EXECUTION
-
-    model_mlp_path = "outputs/best_mlp.keras"
-    model_cnn_path = "outputs/best_cnn.keras"
-
-    if not os.path.exists(model_mlp_path) or not os.path.exists(model_cnn_path):
-        print("⚠️  Modelos no encontrados. Ejecutando entrenamiento...")
-        print(f"   MLP existe: {os.path.exists(model_mlp_path)}")
-        print(f"   CNN existe: {os.path.exists(model_cnn_path)}")
-        
-        try:
-            # Ejecutar redes.py
-            result = subprocess.run(
-                [sys.executable, "redes.py"],
-                check=True,
-                capture_output=True,
-                text=True
-            )
-            print("✅ Entrenamiento completado exitosamente")
-            print(result.stdout)
-        except subprocess.CalledProcessError as e:
-            print(f"❌ Error durante el entrenamiento:")
-            print(e.stderr)
-            raise RuntimeError("No se pudieron entrenar los modelos") from e
-        
-        # Verificar nuevamente que los modelos existan
-        if not os.path.exists(model_mlp_path) or not os.path.exists(model_cnn_path):
-            raise FileNotFoundError(
-                f"Los modelos no se generaron correctamente después del entrenamiento.\n"
-                f"MLP: {os.path.exists(model_mlp_path)}, CNN: {os.path.exists(model_cnn_path)}"
-            )
-    
-    # Cargar mejores modelos entrenados
-    print("📂 Cargando modelos...")
-    try:
-        model_mlp = tf.keras.models.load_model(model_mlp_path, compile=False)
-        model_cnn = tf.keras.models.load_model(model_cnn_path, compile=False)
-        print("✅ Modelos cargados correctamente")
-    except Exception as e:
-        print(f"❌ Error al cargar los modelos: {e}")
-        raise
-
-
+    # Cargar modelos (entrena si no existen)
+    model_mlp, model_cnn = load_models()
     # END TRIAL AUTOMAT REDES.PY EXECUTION
 
     # Construir mapping de etiquetas 

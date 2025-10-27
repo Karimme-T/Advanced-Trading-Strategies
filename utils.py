@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from dataclasses import dataclass
+import sys
+import subprocess
 
 import numpy as np
 import pandas as pd
@@ -301,3 +303,59 @@ def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
     )
     
     return fig
+
+def load_models(mlp_path: str = "outputs/best_mlp.keras", 
+                cnn_path: str = "outputs/best_cnn.keras",
+                training_script: str = "redes.py") -> tuple:
+    """
+    Carga los modelos MLP y CNN. Si no existen, ejecuta el script de entrenamiento.
+    
+    Args:
+        mlp_path: Ruta al modelo MLP
+        cnn_path: Ruta al modelo CNN
+        training_script: Ruta al script de entrenamiento
+    
+    Returns:
+        tuple: (model_mlp, model_cnn) - Modelos de TensorFlow/Keras cargados
+    
+    Raises:
+        RuntimeError: Si el entrenamiento falla
+        FileNotFoundError: Si los modelos no se generan después del entrenamiento
+    """
+    if not os.path.exists(mlp_path) or not os.path.exists(cnn_path):
+        print("⚠️  Modelos no encontrados. Ejecutando entrenamiento...")
+        print(f"   MLP existe: {os.path.exists(mlp_path)}")
+        print(f"   CNN existe: {os.path.exists(cnn_path)}")
+        
+        try:
+            # Ejecutar script de entrenamiento
+            result = subprocess.run(
+                [sys.executable, training_script],
+                check=True,
+                capture_output=True,
+                text=True
+            )
+            print("✅ Entrenamiento completado exitosamente")
+            print(result.stdout)
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Error durante el entrenamiento:")
+            print(e.stderr)
+            raise RuntimeError("No se pudieron entrenar los modelos") from e
+        
+        # Verificar nuevamente que los modelos existan
+        if not os.path.exists(mlp_path) or not os.path.exists(cnn_path):
+            raise FileNotFoundError(
+                f"Los modelos no se generaron correctamente después del entrenamiento.\n"
+                f"MLP: {os.path.exists(mlp_path)}, CNN: {os.path.exists(cnn_path)}"
+            )
+    
+    # Cargar modelos
+    print("📂 Cargando modelos...")
+    try:
+        model_mlp = tf.keras.models.load_model(mlp_path, compile=False)
+        model_cnn = tf.keras.models.load_model(cnn_path, compile=False)
+        print("✅ Modelos cargados correctamente")
+        return model_mlp, model_cnn
+    except Exception as e:
+        print(f"❌ Error al cargar los modelos: {e}")
+        raise
