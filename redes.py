@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from Feature_eng import make_sequences, train_scaled, val_scaled, test_scaled, feat_cols
 
 experiment_name = "dl_trading"
-lookback = 10       
+lookback = 100      
 epochs = 200
 batch_size = 256
 patience = 15
@@ -91,7 +91,7 @@ def build_mlp(input_dim: int, num_classes: int = 3, params: dict | None = None) 
     params = params or {}
     # Hiperparámetros con defaults
     hidden = params.get("hidden", [256, 128])
-    drop = float(params.get("dropout", 0.2))
+    drop = float(params.get("dropout", 0.3))
     lr = float(params.get("lr", 1e-3))
     act = params.get("activation", "relu")
     l2w = float(params.get("l2", 1e-4))
@@ -120,10 +120,10 @@ def build_cnn(input_len: int, num_features: int, num_classes: int = 3, params: d
     f1 = int(params.get("filters1", 128))
     f2 = int(params.get("filters2", 256))
     k1 = int(params.get("kernel1", 5))
-    k2 = int(params.get("kernel2", 3))
+    k2 = int(params.get("kernel2", 5))
     pool = int(params.get("pool", 2))
     drop = float(params.get("dropout", 0.3))
-    lr = float(params.get("lr", 1e-3))
+    lr = float(params.get("lr", 5e-4))
     l2w = float(params.get("l2", 1e-4))
     act = params.get("activation", "relu")
     label_smoothing = float(params.get("label_smoothing", 0.0))
