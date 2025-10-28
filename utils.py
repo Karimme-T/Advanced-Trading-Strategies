@@ -157,7 +157,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
         metrics = res["metrics"]
         data.append({
             "Model": "MLP", "Split": split.capitalize(), 
-            "Sharpe": metrics["sharpe"], "CAGR": metrics["cagr"], 
+            "Calmar": metrics["calmar"], "CAGR": metrics["cagr"], 
             "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
         })
     
@@ -166,7 +166,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
         metrics = res["metrics"]
         data.append({
             "Model": "CNN", "Split": split.capitalize(), 
-            "Sharpe": metrics["sharpe"], "CAGR": metrics["cagr"], 
+            "Calmar": metrics["calmar"], "CAGR": metrics["cagr"], 
             "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
         })
 
@@ -175,7 +175,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
     # Pivotear el dataframe para Plotly Express
     df_melt = df.melt(
         id_vars=["Model", "Split"], 
-        value_vars=["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate"],
+        value_vars=["Calmar", "CAGR", "Max_Drawdown", "Win_Rate"],
         var_name="Metric",
         value_name="Value"
     )
@@ -190,7 +190,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
         facet_col_wrap=2,
         title="Comparación de Métricas de Backtesting (MLP vs CNN)",
         barmode="group",
-        category_orders={"Metric": ["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate"]}
+        category_orders={"Metric": ["Calmar", "CAGR", "Max_Drawdown", "Win_Rate"]}
     )
 
     # Ajustar títulos para Max_Drawdown y Win_Rate
@@ -201,7 +201,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
 
     return "Plotly figure shown"
 
-def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
+def plot_portfolio_evolution_full(results_mlp: dict, results_cnn: dict) -> go.Figure:
     """
     Crea un gráfico interactivo con Plotly mostrando la evolución del equity
     de ambos modelos (MLP y CNN) en todos los splits.
@@ -359,3 +359,235 @@ def load_models(mlp_path: str = "outputs/best_mlp.keras",
     except Exception as e:
         print(f"❌ Error al cargar los modelos: {e}")
         raise
+
+# In utils.py, modify the optimize_backtest_params function:
+
+# #TRIAL BACKTEST: Función para optimizar el Umbral de Confianza y Risk%
+def optimize_backtest_params(
+    model: tf.keras.Model,
+    df_data: pd.DataFrame,
+    inv_mapping: dict,
+    feat_cols_model: list,
+    mean_model: pd.Series,
+    std_model: pd.Series,
+    bt_params_base: BacktestParams,
+    split_name: str = "Val",
+    is_cnn: bool = False
+) -> dict:
+    """
+    Optimiza confidence_threshold y shares (Risk%) usando el Calmar Ratio en el Validation set.
+    """
+    
+    from backtesting import backtest_signals_ohlc
+    
+    # Espacios de búsqueda (Se mantienen iguales)
+    conf_thresholds = [0.5, 0.6, 0.7, 0.8]
+    risk_per_trade = [0.005, 0.01, 0.015, 0.02]
+
+    best_metric_value = -np.inf 
+    
+    # TRIAL BACKTEST: Inicializar best_params con valores seguros y el umbral de confianza por defecto
+    best_params = vars(bt_params_base).copy()
+    best_params['confidence_threshold'] = 0.5  # Default/Fallback
+    best_params['sharpe'] = -np.inf            # Default/Fallback
+    best_params['calmar'] = -np.inf            # Default/Fallback
+
+
+    df_raw = data_with_y.loc[df_data.index].copy()
+    
+    # Bucle de optimización
+    for conf_t in conf_thresholds:
+        # Generar señales
+        signals = generate_signals_cfa(
+            model=model,
+            df_data=df_raw,
+            feat_cols_model=feat_cols_model,
+            mean_model=mean_model,
+            std_model=std_model,
+            inv_mapping=inv_mapping,
+            confidence_threshold=conf_t
+        )
+        
+        for risk_pct in risk_per_trade:
+            # Crear nuevos parámetros
+            current_params = bt_params_base
+            current_params.shares = risk_pct
+            current_params.sl = bt_params_base.sl 
+            current_params.tp = bt_params_base.tp
+            
+            # Ejecutar backtest
+            results = backtest_signals_ohlc(
+                df_raw[["date", "Open", "High", "Low", "Close", "Volume"]].copy(),
+                signals,
+                current_params,
+                outdir=Path("outputs") / f"bt_temp_opt_{split_name}",
+                save_plots=False
+            )
+            
+            calmar = results["metrics"]["calmar"]
+            cagr = results["metrics"]["cagr"]
+            max_dd = results["metrics"]["max_drawdown"]
+            
+            # APLICAR PENALIZACIÓN/CONSTRAINT
+            if np.isnan(calmar) or cagr <= 0:
+                 current_metric = -np.inf
+            elif calmar > 100:
+                 current_metric = 100
+            else:
+                 current_metric = calmar
+
+
+            if current_metric > best_metric_value:
+                best_metric_value = current_metric
+                
+                # Actualizar el diccionario best_params
+                best_params = {
+                    "sl": current_params.sl,
+                    "tp": current_params.tp,
+                    "shares": risk_pct,
+                    "commission_rt": current_params.commission_rt,
+                    "borrow_rate_annual": current_params.borrow_rate_annual,
+                    "initial_capital": current_params.initial_capital,
+                    "overnight": current_params.overnight,
+                    "confidence_threshold": conf_t, 
+                    "sharpe": results["metrics"]["sharpe"],
+                    "calmar": calmar
+                }
+
+    return best_params
+
+def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
+    """
+    Crea un gráfico interactivo con Plotly mostrando la evolución del equity
+    de ambos modelos (MLP y CNN) SOLO en los splits 'val' y 'test'.
+    
+    Args:
+        results_mlp: Diccionario con resultados del backtest MLP {split: {"equity": df, ...}}
+        results_cnn: Diccionario con resultados del backtest CNN {split: {"equity": df, ...}}
+    
+    Returns:
+        go.Figure: Figura de Plotly con las curvas de equity
+    """
+    
+    fig = go.Figure()
+    
+    # Splits a incluir
+    target_splits = ['val', 'test']
+    
+    # Colores para los splits (Solo se usarán los dos primeros)
+    colors_mlp = ['#1f77b4', '#aec7e8', '#c6dbef']  # Azules
+    colors_cnn = ['#ff7f0e', '#ffbb78', '#fdd0a2']  # Naranjas
+    
+    # Diccionario para asignar colores consistentemente
+    color_map_mlp = {'val': colors_mlp[0], 'test': colors_mlp[1]}
+    color_map_cnn = {'val': colors_cnn[0], 'test': colors_cnn[1]}
+    
+    # Contador de iteración para el color, inicializado para 'val' y 'test'
+    i = 0
+    
+    # Agregar curvas MLP - Filtrando solo 'val' y 'test'
+    for split_name, result in results_mlp.items():
+        if split_name in target_splits:
+            equity_df = result["equity"]
+            
+            # Usar el mapa de colores definido para el split
+            color = color_map_mlp[split_name]
+            
+            fig.add_trace(go.Scatter(
+                x=equity_df["date"],
+                y=equity_df["equity"],
+                mode='lines',
+                name=f'MLP - {split_name}',
+                line=dict(color=color, width=2),
+                hovertemplate='<b>MLP - %{fullData.name}</b><br>' +
+                              'Fecha: %{x}<br>' +
+                              'Equity: $%{y:,.2f}<extra></extra>'
+            ))
+            i += 1
+    
+    # Reiniciar contador/índice para los colores CNN si fuera necesario
+    # i = 0 
+    
+    # Agregar curvas CNN - Filtrando solo 'val' y 'test'
+    for split_name, result in results_cnn.items():
+        if split_name in target_splits:
+            equity_df = result["equity"]
+            
+            # Usar el mapa de colores definido para el split
+            color = color_map_cnn[split_name]
+            
+            fig.add_trace(go.Scatter(
+                x=equity_df["date"],
+                y=equity_df["equity"],
+                mode='lines',
+                name=f'CNN - {split_name}',
+                line=dict(color=color, width=2),
+                hovertemplate='<b>CNN - %{fullData.name}</b><br>' +
+                              'Fecha: %{x}<br>' +
+                              'Equity: $%{y:,.2f}<extra></extra>'
+            ))
+            i += 1
+    
+    # Línea de capital inicial (referencia) - Se mantiene la lógica de rango de fechas
+    if results_mlp or results_cnn:
+        # Usar cualquier resultado para obtener el capital inicial
+        first_result = next((r for r in list(results_mlp.values()) + list(results_cnn.values()) if r.get("equity") is not None), None)
+
+        if first_result:
+            initial_capital = first_result["equity"]["equity"].iloc[0]
+            
+            # Obtener rango de fechas completo
+            all_dates = []
+            for split_name in target_splits:
+                if split_name in results_mlp:
+                    all_dates.extend(results_mlp[split_name]["equity"]["date"].tolist())
+                if split_name in results_cnn:
+                    all_dates.extend(results_cnn[split_name]["equity"]["date"].tolist())
+            
+            if all_dates:
+                min_date = min(all_dates)
+                max_date = max(all_dates)
+                
+                fig.add_trace(go.Scatter(
+                    x=[min_date, max_date],
+                    y=[initial_capital, initial_capital],
+                    mode='lines',
+                    name='Capital Inicial',
+                    line=dict(color='gray', width=1, dash='dot'),
+                    hovertemplate='Capital Inicial: $%{y:,.2f}<extra></extra>'
+                ))
+    
+    # Configuración del layout (se mantiene igual)
+    fig.update_layout(
+        title={
+            'text': 'Evolución del Portafolio - MLP vs CNN (Validation y Test)', # Título actualizado
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 20, 'color': '#2c3e50'}
+        },
+        xaxis_title='Fecha',
+        yaxis_title='Equity ($)',
+        hovermode='x unified',
+        template='plotly_white',
+        legend=dict(
+            orientation="v",
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(255, 255, 255, 0.8)',
+            bordercolor='#cccccc',
+            borderwidth=1
+        ),
+        height=600,
+        margin=dict(l=80, r=40, t=80, b=60),
+        yaxis=dict(
+            tickformat='$,.0f',
+            gridcolor='#e0e0e0'
+        ),
+        xaxis=dict(
+            gridcolor='#e0e0e0'
+        )
+    )
+    
+    return fig
