@@ -9,6 +9,7 @@ import pandas as pd
 import tensorflow as tf
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from backtesting import BacktestParams, backtest_signals_ohlc
 from Feature_eng import (
@@ -148,57 +149,134 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
     """
     Crea una visualización Plotly de las métricas clave de backtesting.
     Compara MLP y CNN a través de los splits (train, val, test, full).
-    Guarda el resultado como un archivo JSON de Plotly.
+    Muestra 4 subplots (uno por split) con todas las métricas como barras agrupadas.
     """
     
+    # Definir el orden de los splits
+    split_order = ['train', 'val', 'test', 'full']
+    metric_names = ['Sharpe', 'Sortino', 'Calmar', 'CAGR', 'Max_Drawdown', 'Win_Rate']
+    
+    # Procesar datos
     data = []
+    
     # Procesar resultados MLP
     for split, res in results_mlp.items():
         metrics = res["metrics"]
         data.append({
-            "Model": "MLP", "Split": split.capitalize(), 
-            "Calmar": metrics["calmar"], "CAGR": metrics["cagr"], 
-            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
+            "Model": "MLP", 
+            "Split": split.lower(), 
+            "Sharpe": metrics["sharpe"], 
+            "Sortino": metrics["sortino"],
+            "Calmar": metrics["calmar"],
+            "CAGR": metrics["cagr"], 
+            "Max_Drawdown": metrics["max_drawdown"], 
+            "Win_Rate": metrics["win_rate"]
         })
     
     # Procesar resultados CNN
     for split, res in results_cnn.items():
         metrics = res["metrics"]
         data.append({
-            "Model": "CNN", "Split": split.capitalize(), 
-            "Calmar": metrics["calmar"], "CAGR": metrics["cagr"], 
-            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
+            "Model": "CNN", 
+            "Split": split.lower(), 
+            "Sharpe": metrics["sharpe"], 
+            "Sortino": metrics["sortino"],
+            "Calmar": metrics["calmar"],
+            "CAGR": metrics["cagr"], 
+            "Max_Drawdown": metrics["max_drawdown"], 
+            "Win_Rate": metrics["win_rate"]
         })
-
     df = pd.DataFrame(data)
     
-    # Pivotear el dataframe para Plotly Express
-    df_melt = df.melt(
-        id_vars=["Model", "Split"], 
-        value_vars=["Calmar", "CAGR", "Max_Drawdown", "Win_Rate"],
-        var_name="Metric",
-        value_name="Value"
+    # Crear subplots (2x2 grid)
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=[split.capitalize() for split in split_order],
+        vertical_spacing=0.12,
+        horizontal_spacing=0.1
     )
     
-    # Crear el gráfico de barras agrupado
-    fig = px.bar(
-        df_melt, 
-        x="Split", 
-        y="Value", 
-        color="Model", 
-        facet_col="Metric", 
-        facet_col_wrap=2,
-        title="Comparación de Métricas de Backtesting (MLP vs CNN)",
-        barmode="group",
-        category_orders={"Metric": ["Calmar", "CAGR", "Max_Drawdown", "Win_Rate"]}
+    # Colores para los modelos
+    colors = {'MLP': '#1f77b4', 'CNN': '#ff7f0e'}
+    
+    # Posiciones de los subplots
+    positions = [(1, 1), (1, 2), (2, 1), (2, 2)]
+    
+    # Crear barras para cada split
+    for idx, split in enumerate(split_order):
+        row, col = positions[idx]
+        
+        # Filtrar datos para este split
+        df_split = df[df['Split'] == split]
+        
+        if df_split.empty:
+            continue
+        
+        # Obtener datos para MLP y CNN
+        mlp_data = df_split[df_split['Model'] == 'MLP']
+        cnn_data = df_split[df_split['Model'] == 'CNN']
+        
+        # Preparar valores
+        mlp_values = [mlp_data[metric].values[0] if len(mlp_data) > 0 else 0 for metric in metric_names]
+        cnn_values = [cnn_data[metric].values[0] if len(cnn_data) > 0 else 0 for metric in metric_names]
+        
+        # Agregar barras MLP
+        fig.add_trace(
+            go.Bar(
+                name='MLP',
+                x=metric_names,
+                y=mlp_values,
+                marker_color=colors['MLP'],
+                showlegend=(idx == 0),  # Solo mostrar leyenda en el primer subplot
+                text=[f'{v:.3f}' for v in mlp_values],
+                textposition='outside',
+                textfont=dict(size=9)
+            ),
+            row=row, col=col
+        )
+        
+        # Agregar barras CNN
+        fig.add_trace(
+            go.Bar(
+                name='CNN',
+                x=metric_names,
+                y=cnn_values,
+                marker_color=colors['CNN'],
+                showlegend=(idx == 0),
+                text=[f'{v:.3f}' for v in cnn_values],
+                textposition='outside',
+                textfont=dict(size=9)
+            ),
+            row=row, col=col
+        )
+        
+        # Configurar ejes para este subplot
+        fig.update_xaxes(tickangle=-45, row=row, col=col)
+        fig.update_yaxes(title_text="Value", row=row, col=col)
+    
+    # Configuración general del layout
+    fig.update_layout(
+        title={
+            'text': 'Comparación de Métricas de Backtesting por Split (MLP vs CNN)',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': '#2c3e50'}
+        },
+        barmode='group',
+        height=800,
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        template='plotly_white'
     )
-
-    # Ajustar títulos para Max_Drawdown y Win_Rate
-    fig.for_each_annotation(lambda a: a.update(text=a.text.replace("Metric=", "")))
     
     print("Mostrando el gráfico interactivo. Puede abrirse en una nueva ventana/pestaña del navegador.")
     fig.show()
-
     return "Plotly figure shown"
 
 def plot_portfolio_evolution_full(results_mlp: dict, results_cnn: dict) -> go.Figure:
