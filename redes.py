@@ -115,7 +115,7 @@ def evaluate_split(y_true_int: np.ndarray, proba: np.ndarray, split: str):
 
 def build_mlp(input_dim: int, num_classes: int = 3, params: dict | None = None) -> tf.keras.Model:
     params = params or {}
-    hidden = params.get("hidden", [512, 256])
+    hidden = params.get("hidden", [512, 128])
     drop = float(params.get("dropout", 0.2))
     lr = float(params.get("lr", 5e-3))
     act = params.get("activation", "relu")
@@ -142,14 +142,14 @@ def build_mlp(input_dim: int, num_classes: int = 3, params: dict | None = None) 
 def build_cnn(input_len: int, num_features: int, num_classes: int = 3, params: dict | None = None) -> tf.keras.Model:
     params = params or {}
     f1 = int(params.get("filters1", 512))
-    f2 = int(params.get("filters2", 256))
+    f2 = int(params.get("filters2", 128))
     k1 = int(params.get("kernel1", 5))
     k2 = int(params.get("kernel2", 5))
     pool = int(params.get("pool", 2))
-    drop = float(params.get("dropout", 0.3))
-    lr = float(params.get("lr", 5e-4))
+    drop = float(params.get("dropout", 0.4))
+    lr = float(params.get("lr", 1e-4))
     l2w = float(params.get("l2", 1e-4))
-    act = params.get("activation", "relu")
+    act = params.get("activation", "softmax")
     label_smoothing = float(params.get("label_smoothing", 0.0))
 
     reg = tf.keras.regularizers.l2(l2w)
