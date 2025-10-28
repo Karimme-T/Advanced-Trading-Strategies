@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 import os
 import matplotlib.pyplot as plt
+import mlflow
 
 default_outdir = Path("outputs")
 default_outdir.mkdir(exist_ok=True)

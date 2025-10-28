@@ -158,7 +158,8 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
         data.append({
             "Model": "MLP", "Split": split.capitalize(), 
             "Sharpe": metrics["sharpe"], "CAGR": metrics["cagr"], 
-            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
+            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"],
+            "Calmar": metrics["calmar"], "Sortino": metrics["sortino"]
         })
     
     # Procesar resultados CNN
@@ -167,7 +168,8 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
         data.append({
             "Model": "CNN", "Split": split.capitalize(), 
             "Sharpe": metrics["sharpe"], "CAGR": metrics["cagr"], 
-            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"]
+            "Max_Drawdown": metrics["max_drawdown"], "Win_Rate": metrics["win_rate"],
+            "Calmar": metrics["calmar"], "Sortino": metrics["sortino"]
         })
 
     df = pd.DataFrame(data)
@@ -175,7 +177,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
     # Pivotear el dataframe para Plotly Express
     df_melt = df.melt(
         id_vars=["Model", "Split"], 
-        value_vars=["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate"],
+        value_vars=["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate","Calmar", "Sortino"],
         var_name="Metric",
         value_name="Value"
     )
@@ -190,7 +192,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
         facet_col_wrap=2,
         title="Comparación de Métricas de Backtesting (MLP vs CNN)",
         barmode="group",
-        category_orders={"Metric": ["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate"]}
+        category_orders={"Metric": ["Sharpe", "CAGR", "Max_Drawdown", "Win_Rate", "Calmar", "Sortino"]},
     )
 
     # Ajustar títulos para Max_Drawdown y Win_Rate
@@ -204,7 +206,7 @@ def visualize_backtest_metrics(results_mlp: dict, results_cnn: dict, output_path
 def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
     """
     Crea un gráfico interactivo con Plotly mostrando la evolución del equity
-    de ambos modelos (MLP y CNN) en todos los splits.
+    de ambos modelos (MLP y CNN) SOLO en los splits 'val' y 'test'.
     
     Args:
         results_mlp: Diccionario con resultados del backtest MLP {split: {"equity": df, ...}}
@@ -216,63 +218,96 @@ def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
     
     fig = go.Figure()
     
-    # Colores para los splits
+    # Splits a incluir
+    target_splits = ['val', 'test']
+    
+    # Colores para los splits (Solo se usarán los dos primeros)
     colors_mlp = ['#1f77b4', '#aec7e8', '#c6dbef']  # Azules
     colors_cnn = ['#ff7f0e', '#ffbb78', '#fdd0a2']  # Naranjas
     
-    # Agregar curvas MLP
-    for i, (split_name, result) in enumerate(results_mlp.items()):
-        equity_df = result["equity"]
-        fig.add_trace(go.Scatter(
-            x=equity_df["date"],
-            y=equity_df["equity"],
-            mode='lines',
-            name=f'MLP - {split_name}',
-            line=dict(color=colors_mlp[i % len(colors_mlp)], width=2),
-            hovertemplate='<b>MLP - %{fullData.name}</b><br>' +
-                          'Fecha: %{x}<br>' +
-                          'Equity: $%{y:,.2f}<extra></extra>'
-        ))
+    # Diccionario para asignar colores consistentemente
+    color_map_mlp = {'val': colors_mlp[0], 'test': colors_mlp[1]}
+    color_map_cnn = {'val': colors_cnn[0], 'test': colors_cnn[1]}
     
-    # Agregar curvas CNN
-    for i, (split_name, result) in enumerate(results_cnn.items()):
-        equity_df = result["equity"]
-        fig.add_trace(go.Scatter(
-            x=equity_df["date"],
-            y=equity_df["equity"],
-            mode='lines',
-            name=f'CNN - {split_name}',
-            line=dict(color=colors_cnn[i % len(colors_cnn)], width=2),
-            hovertemplate='<b>CNN - %{fullData.name}</b><br>' +
-                          'Fecha: %{x}<br>' +
-                          'Equity: $%{y:,.2f}<extra></extra>'
-        ))
+    # Contador de iteración para el color, inicializado para 'val' y 'test'
+    i = 0
     
-    # Línea de capital inicial (referencia)
-    if results_mlp:
-        first_result = list(results_mlp.values())[0]
-        initial_capital = first_result["equity"]["equity"].iloc[0]
-        
-        # Obtener rango de fechas completo
-        all_dates = []
-        for result in list(results_mlp.values()) + list(results_cnn.values()):
-            all_dates.extend(result["equity"]["date"].tolist())
-        min_date = min(all_dates)
-        max_date = max(all_dates)
-        
-        fig.add_trace(go.Scatter(
-            x=[min_date, max_date],
-            y=[initial_capital, initial_capital],
-            mode='lines',
-            name='Capital Inicial',
-            line=dict(color='gray', width=1, dash='dot'),
-            hovertemplate='Capital Inicial: $%{y:,.2f}<extra></extra>'
-        ))
+    # Agregar curvas MLP - Filtrando solo 'val' y 'test'
+    for split_name, result in results_mlp.items():
+        if split_name in target_splits:
+            equity_df = result["equity"]
+            
+            # Usar el mapa de colores definido para el split
+            color = color_map_mlp[split_name]
+            
+            fig.add_trace(go.Scatter(
+                x=equity_df["date"],
+                y=equity_df["equity"],
+                mode='lines',
+                name=f'MLP - {split_name}',
+                line=dict(color=color, width=2),
+                hovertemplate='<b>MLP - %{fullData.name}</b><br>' +
+                              'Fecha: %{x}<br>' +
+                              'Equity: $%{y:,.2f}<extra></extra>'
+            ))
+            i += 1
     
-    # Configuración del layout
+    # Reiniciar contador/índice para los colores CNN si fuera necesario
+    # i = 0 
+    
+    # Agregar curvas CNN - Filtrando solo 'val' y 'test'
+    for split_name, result in results_cnn.items():
+        if split_name in target_splits:
+            equity_df = result["equity"]
+            
+            # Usar el mapa de colores definido para el split
+            color = color_map_cnn[split_name]
+            
+            fig.add_trace(go.Scatter(
+                x=equity_df["date"],
+                y=equity_df["equity"],
+                mode='lines',
+                name=f'CNN - {split_name}',
+                line=dict(color=color, width=2),
+                hovertemplate='<b>CNN - %{fullData.name}</b><br>' +
+                              'Fecha: %{x}<br>' +
+                              'Equity: $%{y:,.2f}<extra></extra>'
+            ))
+            i += 1
+    
+    # Línea de capital inicial (referencia) - Se mantiene la lógica de rango de fechas
+    if results_mlp or results_cnn:
+        # Usar cualquier resultado para obtener el capital inicial
+        first_result = next((r for r in list(results_mlp.values()) + list(results_cnn.values()) if r.get("equity") is not None), None)
+
+        if first_result:
+            initial_capital = first_result["equity"]["equity"].iloc[0]
+            
+            # Obtener rango de fechas completo
+            all_dates = []
+            for split_name in target_splits:
+                if split_name in results_mlp:
+                    all_dates.extend(results_mlp[split_name]["equity"]["date"].tolist())
+                if split_name in results_cnn:
+                    all_dates.extend(results_cnn[split_name]["equity"]["date"].tolist())
+            
+            if all_dates:
+                min_date = min(all_dates)
+                max_date = max(all_dates)
+                
+                fig.add_trace(go.Scatter(
+                    x=[min_date, max_date],
+                    y=[initial_capital, initial_capital],
+                    mode='lines',
+                    name='Capital Inicial',
+                    line=dict(color='gray', width=1, dash='dot'),
+                    hovertemplate='Capital Inicial: $%{y:,.2f}<extra></extra>'
+                ))
+    
+    # Configuración del layout (se mantiene igual)
     fig.update_layout(
         title={
-            'text': 'Evolución del Portafolio - MLP vs CNN',
+            'text': 'Evolución del Portafolio - MLP vs CNN (Validation y Test)', # Título actualizado
             'x': 0.5,
             'xanchor': 'center',
             'font': {'size': 20, 'color': '#2c3e50'}
