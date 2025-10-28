@@ -27,7 +27,7 @@ from mlflow.tracking import MlflowClient
 
 model_name = "amzn_trading_model"
 
-# ⚠️ CARGAR DESDE PRODUCTION STAGE
+# CARGAR DESDE PRODUCTION STAGE
 try:
     model_uri = f"models:/{model_name}/Production"
     model = mlflow.keras.load_model(model_uri)
@@ -36,26 +36,26 @@ try:
     client = MlflowClient()
     model_version = client.get_latest_versions(model_name, stages=["Production"])[0]
     
-    print(f"✅ Modelo cargado desde Model Registry")
+    print(f"Modelo cargado desde Model Registry")
     print(f"   Nombre: {model_name}")
     print(f"   Versión: {model_version.version}")
     print(f"   Stage: Production")
     print(f"   Run ID: {model_version.run_id}")
     
 except Exception as e:
-    print(f"❌ Error cargando modelo desde Registry: {e}")
+    print(f" Error cargando modelo desde Registry: {e}")
     print("Intentando cargar desde archivo local...")
     
     # Fallback: cargar desde outputs/
     import tensorflow as tf
     model = tf.keras.models.load_model('outputs/best_mlp.keras')
-    print("✅ Modelo cargado desde archivo local")
+    print("Modelo cargado desde archivo local")
 
 def main():
     # Cargar mejores modelos entrenados
     # Cargar modelos (entrena si no existen)
     model_mlp, model_cnn = load_models()
-    # END TRIAL AUTOMAT REDES.PY EXECUTION
+
 
     # Construir mapping de etiquetas 
     unique_labels = sorted(train_scaled["signal"].unique())        
@@ -107,7 +107,7 @@ def main():
     _ = visualize_backtest_metrics(results_mlp, results_cnn, viz_path)
 
     # Visualización de evolución del portafolio
-    print("\n📊 Mostrando evolución del portafolio...")
+    print("\nMostrando evolución del portafolio...")
     fig = plot_portfolio_evolution(results_mlp, results_cnn)
     fig.show()
 

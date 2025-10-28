@@ -241,14 +241,14 @@ def make_callbacks(run_best_path: str):
     es = callbacks.EarlyStopping(
         monitor="val_accuracy", 
         mode="max", 
-        patience=patience,  # 5 épocas
+        patience=patience,  
         restore_best_weights=True,
         verbose=1
     )
     rlr = callbacks.ReduceLROnPlateau(
         monitor="val_loss", 
         factor=0.5, 
-        patience=3,  # Reducido de 5 a 3
+        patience=3, 
         min_lr=1e-6,
         verbose=1
     )
@@ -272,7 +272,7 @@ print("="*80)
 
 for i, hp in enumerate(mlp_space, start=1):
     run_name = f"MLP_hp{i}"
-    print(f"\n🔹 [{i}/{len(mlp_space)}] {run_name}")
+    print(f"\n[{i}/{len(mlp_space)}] {run_name}")
     print(f"   Config: {hp}")
     
     start_time = time.time()
@@ -293,7 +293,7 @@ for i, hp in enumerate(mlp_space, start=1):
             model_mlp = build_mlp(input_dim=X_tr_mlp.shape[1], num_classes=n_clases, params=hp)
             cbs = make_callbacks(os.path.join(outdir, f"best_mlp_hp{i}.keras"))
 
-            print("   🏋️  Entrenando...")
+            print("  Entrenando...")
             hist = model_mlp.fit(
                 X_tr_mlp, y_tr_mlp,
                 validation_data=(X_va_mlp, y_va_mlp),
@@ -305,11 +305,11 @@ for i, hp in enumerate(mlp_space, start=1):
             )
 
             elapsed = time.time() - start_time
-            print(f"   ⏱️  Tiempo: {elapsed:.1f}s ({elapsed/60:.1f} min)")
-            print(f"   📈 Épocas completadas: {len(hist.history['loss'])}")
+            print(f"   Tiempo: {elapsed:.1f}s ({elapsed/60:.1f} min)")
+            print(f"   Épocas completadas: {len(hist.history['loss'])}")
 
             # Eval
-            print("   🔍 Evaluando...")
+            print("   Evaluando...")
             proba_val = model_mlp.predict(X_va_mlp, verbose=0)
             proba_te  = model_mlp.predict(X_te_mlp, verbose=0)
             m_val = evaluate_split(y_va_mlp, proba_val, f"val_mlp_hp{i}")
@@ -393,7 +393,7 @@ for j, hp in enumerate(cnn_space, start=1):
                 batch_size=batch_size,
                 class_weight=pesos,
                 callbacks=cbs, 
-                verbose=0  # ⚠️ SILENCIOSO
+                verbose=0  
             )
 
             elapsed = time.time() - start_time
@@ -420,7 +420,7 @@ for j, hp in enumerate(cnn_space, start=1):
                 try:
                     import shutil
                     shutil.copyfile(src, dst)
-                    print(f"   🏆 NUEVO MEJOR CNN (F1={best_val_f1_cnn:.4f})")
+                    print(f"   NUEVO MEJOR CNN (F1={best_val_f1_cnn:.4f})")
                 except Exception as _e:
                     pass
                     
@@ -455,10 +455,9 @@ print("\nEntrenamiento completado!")
 print(f"Modelos guardados en: {outdir}/")
 print(f"Experimento MLflow: {experiment_name}")
 
-# DESPUÉS DE SELECCIONAR EL MEJOR MODELO
 
 mejor = max(resultados_val.items(), key=lambda kv: kv[1]["f1_macro"])[0]
-print(f"🏆 MEJOR MODELO: {mejor}")
+print(f"MEJOR MODELO: {mejor}")
 
 # Buscar el run del mejor modelo
 experiment = mlflow.get_experiment_by_name(experiment_name)
@@ -470,7 +469,7 @@ runs_df = mlflow.search_runs(
 
 best_run_id = runs_df.iloc[0]['run_id']
 
-# ⚠️ REGISTRAR EN MODEL REGISTRY
+
 model_name = "amzn_trading_model"
 model_uri = f"runs:/{best_run_id}/model"
 
@@ -486,13 +485,11 @@ try:
         }
     )
     
-    print(f"✅ Modelo registrado: {model_name} version {model_version.version}")
+    print(f"Modelo registrado: {model_name} version {model_version.version}")
     
-    # ⚠️ PROMOVER A PRODUCCIÓN
     from mlflow.tracking import MlflowClient
     client = MlflowClient()
     
-    # Transicionar a "Production"
     client.transition_model_version_stage(
         name=model_name,
         version=model_version.version,
@@ -500,8 +497,8 @@ try:
         archive_existing_versions=True  # Archiva versiones anteriores
     )
     
-    print(f"✅ Modelo promovido a Production")
+    print(f" Modelo promovido a Production")
     
 except Exception as e:
-    print(f"⚠️ Error registrando modelo: {e}")
+    print(f"Error registrando modelo: {e}")
     print("El modelo se guardó localmente en outputs/")
