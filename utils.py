@@ -434,12 +434,21 @@ def load_models(mlp_path: str = "outputs/best_mlp.keras",
     
     Raises:
         RuntimeError: Si el entrenamiento falla
-        FileNotFoundError: Si los modelos no se generan después del entrenamiento
+        FileNotFoundError: Si los modelos no se pueden cargar después del entrenamiento
     """
-    if not os.path.exists(mlp_path) or not os.path.exists(cnn_path):
-        print("⚠️  Modelos no encontrados. Ejecutando entrenamiento...")
+    # Intentar cargar modelos primero
+    print("📂 Intentando cargar modelos...")
+    try:
+        model_mlp = tf.keras.models.load_model(mlp_path, compile=False)
+        model_cnn = tf.keras.models.load_model(cnn_path, compile=False)
+        print("✅ Modelos cargados correctamente")
+        return model_mlp, model_cnn
+    except (OSError, IOError, ImportError) as e:
+        # Los modelos no existen o no se pueden cargar
+        print(f"⚠️  No se pudieron cargar los modelos: {e}")
         print(f"   MLP existe: {os.path.exists(mlp_path)}")
         print(f"   CNN existe: {os.path.exists(cnn_path)}")
+        print("🔄 Ejecutando entrenamiento...")
         
         try:
             # Ejecutar script de entrenamiento
@@ -450,26 +459,23 @@ def load_models(mlp_path: str = "outputs/best_mlp.keras",
                 text=True
             )
             print("✅ Entrenamiento completado exitosamente")
-            print(result.stdout)
+            if result.stdout:
+                print(result.stdout)
         except subprocess.CalledProcessError as e:
             print(f"❌ Error durante el entrenamiento:")
             print(e.stderr)
             raise RuntimeError("No se pudieron entrenar los modelos") from e
         
-        # Verificar nuevamente que los modelos existan
-        if not os.path.exists(mlp_path) or not os.path.exists(cnn_path):
+        # Intentar cargar los modelos nuevamente después del entrenamiento
+        print("📂 Cargando modelos recién entrenados...")
+        try:
+            model_mlp = tf.keras.models.load_model(mlp_path, compile=False)
+            model_cnn = tf.keras.models.load_model(cnn_path, compile=False)
+            print("✅ Modelos cargados correctamente después del entrenamiento")
+            return model_mlp, model_cnn
+        except Exception as load_error:
             raise FileNotFoundError(
                 f"Los modelos no se generaron correctamente después del entrenamiento.\n"
-                f"MLP: {os.path.exists(mlp_path)}, CNN: {os.path.exists(cnn_path)}"
-            )
-    
-    # Cargar modelos
-    print("📂 Cargando modelos...")
-    try:
-        model_mlp = tf.keras.models.load_model(mlp_path, compile=False)
-        model_cnn = tf.keras.models.load_model(cnn_path, compile=False)
-        print("✅ Modelos cargados correctamente")
-        return model_mlp, model_cnn
-    except Exception as e:
-        print(f"❌ Error al cargar los modelos: {e}")
-        raise
+                f"MLP existe: {os.path.exists(mlp_path)}, CNN existe: {os.path.exists(cnn_path)}\n"
+                f"Error: {load_error}"
+            ) from load_error
