@@ -22,6 +22,35 @@ from Feature_eng import (
 
 from utils import backtest_model_on_splits, visualize_backtest_metrics, plot_portfolio_evolution, load_models
 
+import mlflow
+from mlflow.tracking import MlflowClient
+
+model_name = "amzn_trading_model"
+
+# ⚠️ CARGAR DESDE PRODUCTION STAGE
+try:
+    model_uri = f"models:/{model_name}/Production"
+    model = mlflow.keras.load_model(model_uri)
+    
+    # Obtener metadata del modelo
+    client = MlflowClient()
+    model_version = client.get_latest_versions(model_name, stages=["Production"])[0]
+    
+    print(f"✅ Modelo cargado desde Model Registry")
+    print(f"   Nombre: {model_name}")
+    print(f"   Versión: {model_version.version}")
+    print(f"   Stage: Production")
+    print(f"   Run ID: {model_version.run_id}")
+    
+except Exception as e:
+    print(f"❌ Error cargando modelo desde Registry: {e}")
+    print("Intentando cargar desde archivo local...")
+    
+    # Fallback: cargar desde outputs/
+    import tensorflow as tf
+    model = tf.keras.models.load_model('outputs/best_mlp.keras')
+    print("✅ Modelo cargado desde archivo local")
+
 def main():
     # Cargar mejores modelos entrenados
     # Cargar modelos (entrena si no existen)

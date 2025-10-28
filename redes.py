@@ -454,3 +454,54 @@ else:
 print("\nEntrenamiento completado!")
 print(f"Modelos guardados en: {outdir}/")
 print(f"Experimento MLflow: {experiment_name}")
+
+# DESPUÉS DE SELECCIONAR EL MEJOR MODELO
+
+mejor = max(resultados_val.items(), key=lambda kv: kv[1]["f1_macro"])[0]
+print(f"🏆 MEJOR MODELO: {mejor}")
+
+# Buscar el run del mejor modelo
+experiment = mlflow.get_experiment_by_name(experiment_name)
+runs_df = mlflow.search_runs(
+    experiment_ids=[experiment.experiment_id],
+    order_by=["metrics.val_f1_macro DESC"],
+    max_results=1
+)
+
+best_run_id = runs_df.iloc[0]['run_id']
+
+# ⚠️ REGISTRAR EN MODEL REGISTRY
+model_name = "amzn_trading_model"
+model_uri = f"runs:/{best_run_id}/model"
+
+try:
+    # Registrar nueva versión del modelo
+    model_version = mlflow.register_model(
+        model_uri=model_uri,
+        name=model_name,
+        tags={
+            "model_type": mejor.split('_')[0],  # MLP o CNN
+            "val_f1_macro": resultados_val[mejor]["f1_macro"],
+            "training_date": pd.Timestamp.now().strftime("%Y-%m-%d")
+        }
+    )
+    
+    print(f"✅ Modelo registrado: {model_name} version {model_version.version}")
+    
+    # ⚠️ PROMOVER A PRODUCCIÓN
+    from mlflow.tracking import MlflowClient
+    client = MlflowClient()
+    
+    # Transicionar a "Production"
+    client.transition_model_version_stage(
+        name=model_name,
+        version=model_version.version,
+        stage="Production",
+        archive_existing_versions=True  # Archiva versiones anteriores
+    )
+    
+    print(f"✅ Modelo promovido a Production")
+    
+except Exception as e:
+    print(f"⚠️ Error registrando modelo: {e}")
+    print("El modelo se guardó localmente en outputs/")
