@@ -418,7 +418,7 @@ def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
     
     return fig
 
-def load_models(mlp_path: str = "outputs/best_mlp.keras", 
+def load_models2(mlp_path: str = "outputs/best_mlp.keras", 
                 cnn_path: str = "outputs/best_cnn.keras",
                 training_script: str = "redes.py") -> tuple:
     """
@@ -480,7 +480,7 @@ def load_models(mlp_path: str = "outputs/best_mlp.keras",
                 f"Error: {load_error}"
             ) from load_error
 
-def load_models2(mlp_model_name: str = "best_mlp", 
+def load_models(mlp_model_name: str = "best_mlp", 
                 cnn_model_name: str = "best_cnn") -> tuple:
     """
     Load the latest versions of MLP and CNN models from MLflow Model Registry.
