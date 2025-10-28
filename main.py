@@ -41,7 +41,7 @@ def main():
 
     # Parámetros de backtesting 
     bt_params = BacktestParams(
-        sl=0.02,
+        sl=0.014,
         tp=0.04,
         shares=100,           
         commission_rt=0.00125,   
