@@ -418,7 +418,7 @@ def plot_portfolio_evolution(results_mlp: dict, results_cnn: dict) -> go.Figure:
     
     return fig
 
-def load_models2(mlp_path: str = "outputs/best_mlp.keras", 
+def load_models(mlp_path: str = "outputs/best_mlp.keras", 
                 cnn_path: str = "outputs/best_cnn.keras",
                 training_script: str = "redes.py") -> tuple:
     """
@@ -479,49 +479,3 @@ def load_models2(mlp_path: str = "outputs/best_mlp.keras",
                 f"MLP existe: {os.path.exists(mlp_path)}, CNN existe: {os.path.exists(cnn_path)}\n"
                 f"Error: {load_error}"
             ) from load_error
-
-def load_models(mlp_model_name: str = "best_mlp", 
-                cnn_model_name: str = "best_cnn") -> tuple:
-    """
-    Load the latest versions of MLP and CNN models from MLflow Model Registry.
-    
-    Args:
-        mlp_model_name: Registered MLP model name in MLflow
-        cnn_model_name: Registered CNN model name in MLflow
-    
-    Returns:
-        tuple: (model_mlp, model_cnn) - Loaded Keras models
-    """
-    import mlflow
-    
-    print("📂 Loading latest models from MLflow Model Registry...")
-    print(f"   MLP: {mlp_model_name}")
-    print(f"   CNN: {cnn_model_name}")
-    
-    try:
-        # Load latest MLP model (regardless of stage)
-        mlp_uri = f"models:/{mlp_model_name}/latest"
-        print(f"🔍 Loading MLP: {mlp_uri}")
-        model_mlp = mlflow.keras.load_model(mlp_uri)
-        print("✅ MLP model loaded successfully")
-        
-        # Load latest CNN model (regardless of stage)
-        cnn_uri = f"models:/{cnn_model_name}/latest"
-        print(f"🔍 Loading CNN: {cnn_uri}")
-        model_cnn = mlflow.keras.load_model(cnn_uri)
-        print("✅ CNN model loaded successfully")
-        
-        return model_mlp, model_cnn
-        
-    except Exception as e:
-        print(f"❌ Error loading models from MLflow: {e}")
-        print("🔄 Falling back to local model files...")
-        
-        # Fallback to local files
-        try:
-            model_mlp = tf.keras.models.load_model("outputs/best_mlp.keras", compile=False)
-            model_cnn = tf.keras.models.load_model("outputs/best_cnn.keras", compile=False)
-            print("✅ Local models loaded as fallback")
-            return model_mlp, model_cnn
-        except Exception as local_error:
-            raise RuntimeError(f"Could not load models from MLflow or locally: {local_error}") from local_error
