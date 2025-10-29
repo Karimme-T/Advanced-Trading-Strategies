@@ -87,6 +87,9 @@ Usa capital que puedas permitirte perder
 Consulta con un asesor financiero antes de invertir
 Los autores no son responsables por pérdidas financieras
 
+CORRER CÓDIGO
+Primero correr el archivo redes.py y luego main.py para poder visualizar los resultados
+
 
 Licencia
 Este proyecto está licenciado bajo la Licencia MIT - ver el archivo LICENSE para más detalles.
